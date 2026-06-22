@@ -92,6 +92,14 @@ void layer_shell_method_call_cb(FlMethodChannel* channel,
   const char* method = fl_method_call_get_name(method_call);
   g_autoptr(FlMethodResponse) response = nullptr;
 
+  // ── sync ───────────────────────────────────────────────────────────────────
+  if (strcmp(method, "sync") == 0) {
+    gdk_display_sync(gdk_display_get_default());
+    response = success();
+    fl_method_call_respond(method_call, response, nullptr);
+    return;
+  }
+
   // ── isSupported ────────────────────────────────────────────────────────────
   if (strcmp(method, "isSupported") == 0) {
     g_autoptr(FlValue) result =

@@ -19,6 +19,11 @@ class AxLayerShell {
   static LayerShellWindow? windowOf(BuildContext context) =>
       LayerShellWindowScope.maybeOf(context);
 
+  /// Flushes pending Wayland requests and blocks until the compositor's
+  /// configure event (which carries the real surface dimensions) is received.
+  /// Call from [runLayerShell] after all [set*] calls and before [runWidget].
+  static Future<void> sync() => _channel.invokeMethod<void>('sync');
+
   /// Whether the running compositor supports wlr-layer-shell.
   static Future<bool> isSupported() async =>
       await _channel.invokeMethod<bool>('isSupported') ?? false;

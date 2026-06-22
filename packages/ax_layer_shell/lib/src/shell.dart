@@ -48,7 +48,7 @@ Future<void> runLayerShell({
   await win.setKeyboardMode(mainConfig.keyboardMode);
   if (mainConfig.namespace.isNotEmpty) { await win.setNamespace(mainConfig.namespace); }
   if (mainConfig.monitor > 0) { await win.setMonitor(mainConfig.monitor); }
-
+  await AxLayerShell.sync();
   runWidget(app);
 }
 
