@@ -1,14 +1,53 @@
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+
 import 'types.dart';
 
+/// Shared reactive list of all currently-open windows, including the main
+/// window (ID 0). Updated by [AxShellViewCollection] as views open/close.
+final windowsNotifier = ValueNotifier<List<LayerShellWindow>>([
+  const LayerShellWindow(0),
+]);
+
+/// InheritedWidget injected by [AxShellViewCollection] for every Flutter view.
+/// Use [AxLayerShell.windowOf] to read from context instead of accessing this directly.
+class LayerShellWindowScope extends InheritedWidget {
+  const LayerShellWindowScope({
+    required this.window,
+    required super.child,
+    super.key,
+  });
+
+  final LayerShellWindow window;
+
+  static LayerShellWindow? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<LayerShellWindowScope>()?.window;
+
+  @override
+  bool updateShouldNotify(LayerShellWindowScope old) => window != old.window;
+}
+
 class LayerShellWindow {
-  const LayerShellWindow(this.windowId, {this.viewId = -1});
+  const LayerShellWindow(this.windowId, {this.viewId = -1, this.dartArguments = ''});
 
   final int windowId;
 
-  /// Flutter view ID returned by the native engine for this window.
-  /// Used internally by [ViewCollection] to route rendering.
+  /// Flutter view ID returned by the native engine. Used internally to route
+  /// rendering via [ViewCollection].
   final int viewId;
+
+  /// Freeform string from [LayerShellConfig.dartArguments]. Use this to route
+  /// each window to the right UI in your [AxShellViewCollection.viewBuilder].
+  final String dartArguments;
+
+  bool get isMain => windowId == 0;
+
+  @override
+  bool operator ==(Object other) =>
+      other is LayerShellWindow && other.windowId == windowId;
+
+  @override
+  int get hashCode => windowId.hashCode;
 
   static const _channel = MethodChannel('ax.layer_shell');
 
