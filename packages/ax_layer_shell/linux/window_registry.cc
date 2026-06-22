@@ -105,9 +105,14 @@ int WindowRegistry::create(const char* layer, int anchors_bits,
   gtk_layer_set_namespace(win, ns);
 
   GdkDisplay* display = gdk_display_get_default();
+  GdkMonitor* mon = nullptr;
   if (monitor >= 0) {
-    GdkMonitor* mon = gdk_display_get_monitor(display, monitor);
+    mon = gdk_display_get_monitor(display, monitor);
     if (mon != nullptr) gtk_layer_set_monitor(win, mon);
+  }
+  if (mon == nullptr) {
+    mon = gdk_display_get_primary_monitor(display);
+    if (mon == nullptr) mon = gdk_display_get_monitor(display, 0);
   }
 
   gtk_layer_set_margin(win, GTK_LAYER_SHELL_EDGE_LEFT, margin_left);
@@ -115,6 +120,19 @@ int WindowRegistry::create(const char* layer, int anchors_bits,
   gtk_layer_set_margin(win, GTK_LAYER_SHELL_EDGE_TOP, margin_top);
   gtk_layer_set_margin(win, GTK_LAYER_SHELL_EDGE_BOTTOM, margin_bottom);
   gtk_window_set_decorated(win, decorated ? TRUE : FALSE);
+
+  // Pre-size the window with monitor geometry so that Flutter's first rendered
+  // frame uses the correct dimensions instead of GTK's 200×200 default.
+  // The compositor will reassign the true size on map; this just avoids the
+  // overflow/underflow that happens when Flutter renders before that occurs.
+  if (mon != nullptr) {
+    GdkRectangle geo;
+    gdk_monitor_get_geometry(mon, &geo);
+    // Anchored left+right → full-width; anchored top+bottom → full-height.
+    int init_w = (anchors_bits & 3) == 3 ? geo.width : (width > 0 ? width : geo.width);
+    int init_h = (anchors_bits & 12) == 12 ? geo.height : (height > 0 ? height : geo.height);
+    gtk_window_set_default_size(win, init_w, init_h);
+  }
 
   // Create a view that shares the main window's Flutter engine.
   // This avoids EGL context conflicts that occur with separate engines.

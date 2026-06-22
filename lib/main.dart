@@ -179,15 +179,25 @@ class _MainAppState extends State<MainApp> with LayerShellMixin<MainApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      color: Colors.transparent,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: Colors.transparent,
+        canvasColor: Colors.transparent,
+      ),
+      // Strip safe-area padding: layer-shell windows have no system chrome.
+      builder: (ctx, child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(
+          padding: EdgeInsets.zero,
+          viewPadding: EdgeInsets.zero,
+          viewInsets: EdgeInsets.zero,
+        ),
+        child: child!,
       ),
       home: Scaffold(
-        body: SizedBox(
-          height: 45,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+        backgroundColor: Colors.transparent,
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
               const SizedBox(width: 12),
               const Text(
                 'ax_shell',
@@ -209,7 +219,6 @@ class _MainAppState extends State<MainApp> with LayerShellMixin<MainApp> {
             ],
           ),
         ),
-      ),
     );
   }
 }
@@ -269,10 +278,20 @@ class _SubWindowAppState extends State<SubWindowApp>
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      color: Colors.transparent,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: Colors.transparent,
+        canvasColor: Colors.transparent,
       ),
-      home: Scaffold(body: _body()),
+      builder: (ctx, child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(
+          padding: EdgeInsets.zero,
+          viewPadding: EdgeInsets.zero,
+          viewInsets: EdgeInsets.zero,
+        ),
+        child: child!,
+      ),
+      home: Scaffold(backgroundColor: Colors.transparent, body: _body()),
     );
   }
 
