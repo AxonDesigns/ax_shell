@@ -88,8 +88,7 @@ class _AxShellRootState extends State<AxShellRoot> {
 
   @override
   Widget build(BuildContext context) {
-    final views =
-        WidgetsBinding.instance.platformDispatcher.views.toList();
+    final views = WidgetsBinding.instance.platformDispatcher.views.toList();
 
     return ViewCollection(
       views: views.map((view) {
@@ -107,8 +106,7 @@ class _AxShellRootState extends State<AxShellRoot> {
 
   Widget _widgetForWindow(int windowId) {
     if (windowId == 0) return const MainApp();
-    return SubWindowApp(
-        windowId: windowId, args: _windowArgs[windowId] ?? '');
+    return SubWindowApp(windowId: windowId, args: _windowArgs[windowId] ?? '');
   }
 }
 
@@ -184,41 +182,39 @@ class _MainAppState extends State<MainApp> with LayerShellMixin<MainApp> {
         scaffoldBackgroundColor: Colors.transparent,
         canvasColor: Colors.transparent,
       ),
-      // Strip safe-area padding: layer-shell windows have no system chrome.
-      builder: (ctx, child) => MediaQuery(
-        data: MediaQuery.of(ctx).copyWith(
-          padding: EdgeInsets.zero,
-          viewPadding: EdgeInsets.zero,
-          viewInsets: EdgeInsets.zero,
-        ),
-        child: child!,
-      ),
       home: Scaffold(
         backgroundColor: Colors.transparent,
-        body: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-              const SizedBox(width: 12),
-              const Text(
-                'ax_shell',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const Spacer(),
-              _BarButton(label: '+ Bottom Bar', onPressed: _openBottomBar),
-              _BarButton(label: '+ Launcher', onPressed: _openLauncher),
-              _BarButton(
-                label:
-                    'Close Last${_windows.isEmpty ? '' : ' (${_windows.length})'}',
-                onPressed: _windows.isEmpty ? null : _closeLast,
-              ),
-              _BarButton(
-                label: 'Ping All',
-                onPressed: _windows.isEmpty ? null : _pingAll,
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
+        body: LayoutBuilder(
+          builder: (ctx, constraints) {
+            // Skip the first frame when the compositor hasn't assigned the
+            // real surface width yet (GTK 200×200 default triggers Row overflow).
+            if (constraints.maxWidth <= 200) return const SizedBox.shrink();
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(width: 12),
+                const Text(
+                  'ax_shell',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                _BarButton(label: '+ Bottom Bar', onPressed: _openBottomBar),
+                _BarButton(label: '+ Launcher', onPressed: _openLauncher),
+                _BarButton(
+                  label:
+                      'Close Last${_windows.isEmpty ? '' : ' (${_windows.length})'}',
+                  onPressed: _windows.isEmpty ? null : _closeLast,
+                ),
+                _BarButton(
+                  label: 'Ping All',
+                  onPressed: _windows.isEmpty ? null : _pingAll,
+                ),
+                const SizedBox(width: 8),
+              ],
+            );
+          },
         ),
+      ),
     );
   }
 }
@@ -283,14 +279,6 @@ class _SubWindowAppState extends State<SubWindowApp>
         scaffoldBackgroundColor: Colors.transparent,
         canvasColor: Colors.transparent,
       ),
-      builder: (ctx, child) => MediaQuery(
-        data: MediaQuery.of(ctx).copyWith(
-          padding: EdgeInsets.zero,
-          viewPadding: EdgeInsets.zero,
-          viewInsets: EdgeInsets.zero,
-        ),
-        child: child!,
-      ),
       home: Scaffold(backgroundColor: Colors.transparent, body: _body()),
     );
   }
@@ -298,21 +286,21 @@ class _SubWindowAppState extends State<SubWindowApp>
   Widget _body() {
     return switch (widget.args) {
       'bottom_bar' => _BottomBarBody(
-          windowId: widget.windowId,
-          messages: _messages,
-          onClose: _close,
-        ),
+        windowId: widget.windowId,
+        messages: _messages,
+        onClose: _close,
+      ),
       'launcher' => _LauncherBody(
-          windowId: widget.windowId,
-          messages: _messages,
-          onClose: _close,
-        ),
+        windowId: widget.windowId,
+        messages: _messages,
+        onClose: _close,
+      ),
       _ => _GenericBody(
-          windowId: widget.windowId,
-          args: widget.args,
-          messages: _messages,
-          onClose: _close,
-        ),
+        windowId: widget.windowId,
+        args: widget.args,
+        messages: _messages,
+        onClose: _close,
+      ),
     };
   }
 }
@@ -394,7 +382,9 @@ class _LauncherBody extends StatelessWidget {
                   child: Text(
                     m,
                     style: const TextStyle(
-                        fontSize: 12, color: Colors.greenAccent),
+                      fontSize: 12,
+                      color: Colors.greenAccent,
+                    ),
                   ),
                 ),
               ),
@@ -436,8 +426,7 @@ class _GenericBody extends StatelessWidget {
             ...messages.map(
               (m) => Text(
                 m,
-                style: const TextStyle(
-                    fontSize: 12, color: Colors.greenAccent),
+                style: const TextStyle(fontSize: 12, color: Colors.greenAccent),
               ),
             ),
           ],

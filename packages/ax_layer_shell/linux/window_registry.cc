@@ -131,7 +131,7 @@ int WindowRegistry::create(const char* layer, int anchors_bits,
     // Anchored left+right → full-width; anchored top+bottom → full-height.
     int init_w = (anchors_bits & 3) == 3 ? geo.width : (width > 0 ? width : geo.width);
     int init_h = (anchors_bits & 12) == 12 ? geo.height : (height > 0 ? height : geo.height);
-    gtk_window_set_default_size(win, init_w, init_h);
+    gtk_widget_set_size_request(GTK_WIDGET(win), init_w, init_h);
   }
 
   // Create a view that shares the main window's Flutter engine.
