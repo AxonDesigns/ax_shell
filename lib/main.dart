@@ -180,23 +180,29 @@ class _BottomBarBodyState extends State<_BottomBarBody>
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const SizedBox(width: 12),
-        Text(
-          'Bottom Bar  •  id: ${widget.window.windowId}',
-          style: const TextStyle(fontSize: 13),
-        ),
-        const Spacer(),
-        if (_messages.isNotEmpty)
-          Text(
-            _messages.last,
-            style: const TextStyle(fontSize: 12, color: Colors.greenAccent),
-          ),
-        const SizedBox(width: 12),
-        TextButton(onPressed: widget.window.close, child: const Text('Close')),
-        const SizedBox(width: 8),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth <= 200) return const SizedBox.shrink();
+        return Row(
+          children: [
+            const SizedBox(width: 12),
+            Text(
+              'Bottom Bar  •  id: ${widget.window.windowId}',
+              style: const TextStyle(fontSize: 13),
+            ),
+            const Spacer(),
+            if (_messages.isNotEmpty)
+              Text(
+                _messages.last,
+                style: const TextStyle(fontSize: 12, color: Colors.greenAccent),
+              ),
+            const SizedBox(width: 12),
+            TextButton(
+                onPressed: widget.window.close, child: const Text('Close')),
+            const SizedBox(width: 8),
+          ],
+        );
+      },
     );
   }
 }

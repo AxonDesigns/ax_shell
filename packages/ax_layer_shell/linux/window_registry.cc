@@ -121,17 +121,19 @@ int WindowRegistry::create(const char* layer, int anchors_bits,
   gtk_layer_set_margin(win, GTK_LAYER_SHELL_EDGE_BOTTOM, margin_bottom);
   gtk_window_set_decorated(win, decorated ? TRUE : FALSE);
 
-  // Pre-size the window with monitor geometry so that Flutter's first rendered
-  // frame uses the correct dimensions instead of GTK's 200×200 default.
-  // The compositor will reassign the true size on map; this just avoids the
-  // overflow/underflow that happens when Flutter renders before that occurs.
-  if (mon != nullptr) {
-    GdkRectangle geo;
-    gdk_monitor_get_geometry(mon, &geo);
-    // Anchored left+right → full-width; anchored top+bottom → full-height.
-    int init_w = (anchors_bits & 3) == 3 ? geo.width : (width > 0 ? width : geo.width);
-    int init_h = (anchors_bits & 12) == 12 ? geo.height : (height > 0 ? height : geo.height);
-    gtk_widget_set_size_request(GTK_WIDGET(win), init_w, init_h);
+  // Hint the GTK minimum size only for dimensions the caller explicitly
+  // specified. Do NOT hint compositor-determined dimensions (left+right
+  // anchored → width; top+bottom anchored → height): the compositor assigns
+  // those based on usable area after subtracting exclusive zones from other
+  // surfaces. A fixed hint would conflict with that assignment and cause
+  // Flutter to render wider/taller than the actual Wayland surface.
+  {
+    bool full_w = (anchors_bits & 3) == 3;   // left+right anchored
+    bool full_h = (anchors_bits & 12) == 12; // top+bottom anchored
+    int req_w = (!full_w && width > 0) ? width : -1;
+    int req_h = (!full_h && height > 0) ? height : -1;
+    if (req_w > 0 || req_h > 0)
+      gtk_widget_set_size_request(GTK_WIDGET(win), req_w, req_h);
   }
 
   // Create a view that shares the main window's Flutter engine.

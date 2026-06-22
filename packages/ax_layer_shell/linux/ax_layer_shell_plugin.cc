@@ -73,18 +73,6 @@ void ax_layer_shell_configure_window(GtkWindow* window) {
   if (visual != nullptr) gtk_widget_set_visual(GTK_WIDGET(window), visual);
   gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
 
-  // Override GTK's 200×200 default minimum so Flutter's first frame has a
-  // sensible viewport width. Without this the engine sees 200×200 at realize
-  // time and any Row wider than that overflows before the compositor has sent
-  // the real surface dimensions.
-  GdkDisplay* display = gdk_display_get_default();
-  GdkMonitor* mon = gdk_display_get_primary_monitor(display);
-  if (mon == nullptr) mon = gdk_display_get_monitor(display, 0);
-  if (mon != nullptr) {
-    GdkRectangle geo;
-    gdk_monitor_get_geometry(mon, &geo);
-    gtk_widget_set_size_request(GTK_WIDGET(window), geo.width, -1);
-  }
 }
 
 void ax_layer_shell_set_main_window(GtkWindow* window, FlView* view) {
