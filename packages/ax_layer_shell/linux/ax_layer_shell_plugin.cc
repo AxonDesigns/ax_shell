@@ -55,8 +55,9 @@ void ax_layer_shell_plugin_register_with_registrar(
       channel, layer_shell_method_call_cb, g_object_ref(plugin),
       g_object_unref);
 
-  // Store channel so the registry can associate it with the next window entry.
-  WindowRegistry::instance().set_pending_channel(channel);
+  // With a shared engine, all windows use one Dart isolate and therefore one
+  // channel. Store it globally so WindowRegistry::broadcast() can reach Dart.
+  WindowRegistry::instance().set_event_channel(channel);
 
   plugin->channel = channel;
   g_object_unref(plugin);
@@ -65,13 +66,14 @@ void ax_layer_shell_plugin_register_with_registrar(
 void ax_layer_shell_configure_window(GtkWindow* window) {
   gtk_layer_init_for_window(window);
   gtk_window_set_decorated(window, FALSE);
+
+  // Must be set before realize so the compositor allocates an alpha channel.
+  GdkScreen* screen = gtk_widget_get_screen(GTK_WIDGET(window));
+  GdkVisual* visual = gdk_screen_get_rgba_visual(screen);
+  if (visual != nullptr) gtk_widget_set_visual(GTK_WIDGET(window), visual);
+  gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
 }
 
 void ax_layer_shell_set_main_window(GtkWindow* window, FlView* view) {
   WindowRegistry::instance().register_main(window, view);
-}
-
-void ax_layer_shell_set_window_created_callback(
-    void (*callback)(FlPluginRegistry*)) {
-  WindowRegistry::instance().set_window_created_callback(callback);
 }

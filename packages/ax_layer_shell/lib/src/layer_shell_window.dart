@@ -2,9 +2,13 @@ import 'package:flutter/services.dart';
 import 'types.dart';
 
 class LayerShellWindow {
-  const LayerShellWindow(this.windowId);
+  const LayerShellWindow(this.windowId, {this.viewId = -1});
 
   final int windowId;
+
+  /// Flutter view ID returned by the native engine for this window.
+  /// Used internally by [ViewCollection] to route rendering.
+  final int viewId;
 
   static const _channel = MethodChannel('ax.layer_shell');
 

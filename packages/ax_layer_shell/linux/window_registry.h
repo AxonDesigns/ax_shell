@@ -5,14 +5,14 @@
 #include <gtk/gtk.h>
 
 #include <atomic>
-#include <functional>
 #include <map>
+#include <string>
 
 struct WindowEntry {
   int id;
+  int64_t view_id;  // Flutter view ID (from fl_view_get_id)
   GtkWindow* window;
   FlView* view;
-  FlMethodChannel* event_channel;  // native→dart; owned (g_object_ref'd)
 };
 
 class WindowRegistry {
@@ -20,17 +20,14 @@ class WindowRegistry {
   static WindowRegistry& instance();
 
   // Register the main application window as ID 0.
+  // Stores the shared FlEngine for all subsequent sub-window creation.
   void register_main(GtkWindow* window, FlView* view);
 
-  // Set the callback invoked for each new window's plugin registry.
-  void set_window_created_callback(
-      std::function<void(FlPluginRegistry*)> callback);
+  // Called by register_with_registrar to store the single event channel
+  // used for all native→dart callbacks (shared engine, one isolate).
+  void set_event_channel(FlMethodChannel* channel);
 
-  // Called by register_with_registrar to hand the channel to the registry.
-  // The registry takes ownership (g_object_ref).
-  void set_pending_channel(FlMethodChannel* channel);
-
-  // Create a new GTK+Flutter layer-shell window with the given config.
+  // Create a new GTK+Flutter layer-shell window using the shared engine.
   // Returns the assigned window ID (>= 1), or -1 on failure.
   int create(const char* layer, int anchors_bits, int exclusive_zone,
              const char* keyboard_mode, const char* ns, int monitor, int width,
@@ -38,10 +35,17 @@ class WindowRegistry {
              int margin_bottom, bool decorated, const char* dart_arguments);
 
   WindowEntry* get(int id);
+  WindowEntry* get_by_view_id(int64_t view_id);
   void remove(int id);
 
-  // Invoke a method on every registered window's event channel.
+  // Invoke a method on the shared event channel (reaches all Dart code).
   void broadcast(const char* method, FlValue* args);
+
+  // Return the dartArguments string stored for a given Flutter view ID.
+  std::string get_view_args(int64_t view_id) const;
+
+  // Return the windowId for a given Flutter view ID (-1 if not found).
+  int window_id_for_view(int64_t view_id) const;
 
  private:
   WindowRegistry() = default;
@@ -49,9 +53,10 @@ class WindowRegistry {
   WindowRegistry& operator=(const WindowRegistry&) = delete;
 
   std::map<int, WindowEntry> windows_;
+  std::map<int64_t, std::string> view_args_;  // view_id → dartArguments
   std::atomic<int> next_id_{1};
-  std::function<void(FlPluginRegistry*)> window_created_callback_;
-  FlMethodChannel* pending_channel_ = nullptr;
+  FlEngine* main_engine_ = nullptr;
+  FlMethodChannel* event_channel_ = nullptr;
 };
 
 #endif  // WINDOW_REGISTRY_H_

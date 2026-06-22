@@ -43,9 +43,8 @@ static void my_application_activate(GApplication* application) {
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
-  // Register the main window (ID 0) and wire up sub-window plugin init.
+  // Register the main window as ID 0; stores shared FlEngine for sub-windows.
   ax_layer_shell_set_main_window(window, view);
-  ax_layer_shell_set_window_created_callback(fl_register_plugins);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

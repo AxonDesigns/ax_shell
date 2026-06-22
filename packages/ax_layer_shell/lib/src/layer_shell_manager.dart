@@ -14,59 +14,41 @@ class AxLayerShell {
   /// Handle for the main application window (always ID 0).
   static LayerShellWindow get mainWindow => const LayerShellWindow(0);
 
-  /// Open a new GTK+Flutter window configured for layer shell.
+  /// Open a new GTK+Flutter layer-shell window using the shared engine.
   ///
-  /// The new window's Dart isolate receives entrypoint arguments:
-  ///   args[0] = "multi_window"
-  ///   args[1] = window id (as string)
-  ///   args[2] = [config.dartArguments]
-  ///
-  /// Use [currentWindowId] and [currentWindowArgs] in the new window to
-  /// decide which UI to render.
+  /// Returns a [LayerShellWindow] whose [viewId] identifies the Flutter view
+  /// created for this window. The caller's [ViewCollection] uses [viewId] to
+  /// route rendering into the correct GTK surface.
   static Future<LayerShellWindow> openWindow(LayerShellConfig config) async {
-    final id = await _channel.invokeMethod<int>('openWindow', config.toMap());
-    if (id == null || id < 0) throw Exception('Failed to open layer shell window');
-    return LayerShellWindow(id);
+    final result =
+        await _channel.invokeMethod<Map<Object?, Object?>>('openWindow', config.toMap());
+    if (result == null) throw Exception('Failed to open layer shell window');
+    final windowId = (result['windowId'] as num?)?.toInt() ?? -1;
+    final viewId = (result['viewId'] as num?)?.toInt() ?? -1;
+    if (windowId < 0) throw Exception('Failed to open layer shell window');
+    return LayerShellWindow(windowId, viewId: viewId);
   }
 
-  /// The window ID this Dart isolate belongs to.
-  /// 0 for the main window; a positive integer for sub-windows.
-  static int get currentWindowId => _currentWindowId;
-
-  /// The dartArguments string passed to [LayerShellConfig.dartArguments]
-  /// when this window was opened. Empty string for the main window.
-  static String get currentWindowArgs => _currentWindowArgs;
-
-  // Set once from main() by reading entrypoint arguments.
-  static int _currentWindowId = 0;
-  static String _currentWindowArgs = '';
-
-  /// Send a targeted message to another window. Only the target window's
-  /// [AxLayerShellEvents.messages] stream receives it.
-  static Future<void> sendMessage(int targetWindowId, String payload) =>
+  /// Send a targeted message to another window.
+  ///
+  /// With a shared engine only one Dart isolate runs; the [AxLayerShellEvents]
+  /// stream receives the event and [LayerShellMixin] filters by
+  /// [LayerShellMixin.layerShellWindowId] so only the target widget reacts.
+  static Future<void> sendMessage(
+    int targetWindowId,
+    String payload, {
+    int fromWindowId = 0,
+  }) =>
       _channel.invokeMethod<void>('sendMessage', {
         'targetWindowId': targetWindowId,
-        'fromWindowId': currentWindowId,
+        'fromWindowId': fromWindowId,
         'payload': payload,
       });
 
-  /// Call this at the very start of main() to initialise window identity.
-  ///
-  /// Example:
-  /// ```dart
-  /// void main(List<String> args) {
-  ///   AxLayerShell.initFromArgs(args);
-  ///   if (AxLayerShell.currentWindowId != 0) {
-  ///     runSubWindow();
-  ///   } else {
-  ///     runApp(const MainApp());
-  ///   }
-  /// }
-  /// ```
-  static void initFromArgs(List<String> args) {
-    if (args.length >= 3 && args[0] == 'multi_window') {
-      _currentWindowId = int.tryParse(args[1]) ?? 0;
-      _currentWindowArgs = args[2];
-    }
+  /// Query the native side for the windowId associated with a Flutter view ID.
+  static Future<int> windowIdForView(int viewId) async {
+    final result = await _channel
+        .invokeMethod<int>('windowIdForView', {'viewId': viewId});
+    return result ?? -1;
   }
 }

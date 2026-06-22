@@ -26,12 +26,6 @@ FLUTTER_PLUGIN_EXPORT void ax_layer_shell_configure_window(GtkWindow* window);
 FLUTTER_PLUGIN_EXPORT void ax_layer_shell_set_main_window(GtkWindow* window,
                                                            FlView* view);
 
-// Called in my_application_activate() AFTER ax_layer_shell_set_main_window().
-// Provides the callback used to register plugins on each new sub-window engine.
-// Pass fl_register_plugins so all plugins are available in sub-windows.
-FLUTTER_PLUGIN_EXPORT void ax_layer_shell_set_window_created_callback(
-    void (*callback)(FlPluginRegistry*));
-
 G_END_DECLS
 
 #endif  // AX_LAYER_SHELL_PLUGIN_H_

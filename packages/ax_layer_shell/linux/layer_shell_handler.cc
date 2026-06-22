@@ -34,6 +34,14 @@ static int get_int(FlMethodCall* call, const char* key, int fallback = 0) {
   return fallback;
 }
 
+static int64_t get_int64(FlMethodCall* call, const char* key,
+                          int64_t fallback = -1) {
+  FlValue* v = get_arg(call, key);
+  if (v == nullptr) return fallback;
+  if (fl_value_get_type(v) == FL_VALUE_TYPE_INT) return fl_value_get_int(v);
+  return fallback;
+}
+
 static const char* get_string(FlMethodCall* call, const char* key,
                                const char* fallback = "") {
   FlValue* v = get_arg(call, key);
@@ -65,14 +73,15 @@ static GtkLayerShellKeyboardMode parse_keyboard_mode(const char* name) {
   return GTK_LAYER_SHELL_KEYBOARD_MODE_NONE;
 }
 
-// Fire an event on the AFFECTED window's channel (not necessarily the caller's).
-// event_map must already be a FL_VALUE_TYPE_MAP; type field is inserted here.
+// Broadcast a layer event for a specific window.
+// With a shared engine/isolate, all Dart code sees this — the windowId field
+// lets Dart filter to the relevant window.
 static void fire_layer_event(WindowEntry* entry, const char* type,
                               FlValue* event_map) {
-  if (!entry->event_channel) return;
   fl_value_set_string_take(event_map, "type", fl_value_new_string(type));
-  fl_method_channel_invoke_method(entry->event_channel, "onLayerEvent",
-                                  event_map, nullptr, nullptr, nullptr);
+  fl_value_set_string_take(event_map, "windowId",
+                            fl_value_new_int(entry->id));
+  WindowRegistry::instance().broadcast("onLayerEvent", event_map);
 }
 
 // ── dispatch ─────────────────────────────────────────────────────────────────
@@ -112,9 +121,33 @@ void layer_shell_method_call_cb(FlMethodChannel* channel,
     if (id < 0) {
       response = error("CREATE_FAILED", "Failed to create window");
     } else {
-      g_autoptr(FlValue) result = fl_value_new_int(id);
+      WindowEntry* entry = WindowRegistry::instance().get(id);
+      g_autoptr(FlValue) result = fl_value_new_map();
+      fl_value_set_string_take(result, "windowId", fl_value_new_int(id));
+      fl_value_set_string_take(result, "viewId",
+                                fl_value_new_int(entry ? entry->view_id : -1));
       response = success(result);
     }
+    fl_method_call_respond(method_call, response, nullptr);
+    return;
+  }
+
+  // ── getViewArgs ────────────────────────────────────────────────────────────
+  if (strcmp(method, "getViewArgs") == 0) {
+    int64_t view_id = get_int64(method_call, "viewId");
+    std::string args = WindowRegistry::instance().get_view_args(view_id);
+    g_autoptr(FlValue) result = fl_value_new_string(args.c_str());
+    response = success(result);
+    fl_method_call_respond(method_call, response, nullptr);
+    return;
+  }
+
+  // ── windowIdForView ────────────────────────────────────────────────────────
+  if (strcmp(method, "windowIdForView") == 0) {
+    int64_t view_id = get_int64(method_call, "viewId");
+    int window_id = WindowRegistry::instance().window_id_for_view(view_id);
+    g_autoptr(FlValue) result = fl_value_new_int(window_id);
+    response = success(result);
     fl_method_call_respond(method_call, response, nullptr);
     return;
   }
@@ -124,17 +157,15 @@ void layer_shell_method_call_cb(FlMethodChannel* channel,
     int target_id = get_int(method_call, "targetWindowId", -1);
     int from_id = get_int(method_call, "fromWindowId", -1);
     const char* payload = get_string(method_call, "payload");
-    WindowEntry* target = WindowRegistry::instance().get(target_id);
-    if (!target || !target->event_channel) {
-      response = error("INVALID_WINDOW", "Target window not found");
-    } else {
-      g_autoptr(FlValue) args = fl_value_new_map();
-      fl_value_set_string_take(args, "fromWindowId", fl_value_new_int(from_id));
-      fl_value_set_string_take(args, "payload", fl_value_new_string(payload));
-      fl_method_channel_invoke_method(target->event_channel, "onMessage", args,
-                                      nullptr, nullptr, nullptr);
-      response = success();
-    }
+    // With shared engine all Dart code is in one isolate — broadcast and
+    // let Dart filter by targetWindowId.
+    g_autoptr(FlValue) args = fl_value_new_map();
+    fl_value_set_string_take(args, "targetWindowId",
+                              fl_value_new_int(target_id));
+    fl_value_set_string_take(args, "fromWindowId", fl_value_new_int(from_id));
+    fl_value_set_string_take(args, "payload", fl_value_new_string(payload));
+    WindowRegistry::instance().broadcast("onMessage", args);
+    response = success();
     fl_method_call_respond(method_call, response, nullptr);
     return;
   }
@@ -185,10 +216,10 @@ void layer_shell_method_call_cb(FlMethodChannel* channel,
     response = success();
 
   } else if (strcmp(method, "setExclusiveZone") == 0) {
-    int zone = get_int(method_call, "exclusiveZone");
-    gtk_layer_set_exclusive_zone(win, zone);
+    int pixels = get_int(method_call, "exclusiveZone");
+    gtk_layer_set_exclusive_zone(win, pixels);
     g_autoptr(FlValue) ev = fl_value_new_map();
-    fl_value_set_string_take(ev, "exclusiveZone", fl_value_new_int(zone));
+    fl_value_set_string_take(ev, "exclusiveZone", fl_value_new_int(pixels));
     fire_layer_event(entry, "exclusiveZoneChanged", ev);
     response = success();
 
@@ -250,11 +281,10 @@ void layer_shell_method_call_cb(FlMethodChannel* channel,
     response = success();
 
   } else if (strcmp(method, "setDecorated") == 0) {
-    bool dec = get_bool(method_call, "decorated");
-    gtk_window_set_decorated(win, dec ? TRUE : FALSE);
+    bool decorated = get_bool(method_call, "decorated");
+    gtk_window_set_decorated(win, decorated ? TRUE : FALSE);
     g_autoptr(FlValue) ev = fl_value_new_map();
-    fl_value_set_string_take(ev, "decorated",
-                              fl_value_new_bool(dec ? TRUE : FALSE));
+    fl_value_set_string_take(ev, "decorated", fl_value_new_bool(decorated));
     fire_layer_event(entry, "decoratedChanged", ev);
     response = success();
 
@@ -275,11 +305,7 @@ void layer_shell_method_call_cb(FlMethodChannel* channel,
   } else if (strcmp(method, "close") == 0) {
     if (window_id == 0) {
       gtk_widget_hide(GTK_WIDGET(win));
-      g_autoptr(FlValue) ev = fl_value_new_map();
-      fl_value_set_string_take(ev, "visible", fl_value_new_bool(FALSE));
-      fire_layer_event(entry, "visibilityChanged", ev);
     } else {
-      // remove() broadcasts onWindowClosed before erasing.
       WindowRegistry::instance().remove(window_id);
       gtk_widget_destroy(GTK_WIDGET(win));
     }
