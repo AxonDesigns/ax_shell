@@ -35,68 +35,71 @@ class MainApp extends StatelessWidget {
           valueListenable: AxLayerShell.windows,
           builder: (context, windows, _) {
             final subWindows = windows.where((w) => !w.isMain).toList();
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(width: 12),
-                const Text(
-                  'ax_shell',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                _BarButton(
-                  label: '+ Bottom Bar',
-                  onPressed: () => AxLayerShell.openWindow(
-                    const LayerShellConfig(
-                      layer: LayerShellLayer.top,
-                      anchors: {
-                        LayerShellEdge.left,
-                        LayerShellEdge.right,
-                        LayerShellEdge.bottom,
-                      },
-                      exclusiveZone: 45,
-                      height: 45,
-                      namespace: 'ax_shell_bottom',
-                      dartArguments: 'bottom_bar',
-                    ),
+            return Container(
+              height: 45,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(width: 12),
+                  const Text(
+                    'ax_shell',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                ),
-                _BarButton(
-                  label: '+ Launcher',
-                  onPressed: () => AxLayerShell.openWindow(
-                    const LayerShellConfig(
-                      layer: LayerShellLayer.overlay,
-                      keyboardMode: LayerShellKeyboardMode.exclusive,
-                      width: 420,
-                      height: 520,
-                      namespace: 'ax_shell_launcher',
-                      dartArguments: 'launcher',
-                    ),
-                  ),
-                ),
-                _BarButton(
-                  label:
-                      'Close Last'
-                      '${subWindows.isEmpty ? '' : ' (${subWindows.length})'}',
-                  onPressed: subWindows.isEmpty
-                      ? null
-                      : () => subWindows.last.close(),
-                ),
-                _BarButton(
-                  label: 'Ping All',
-                  onPressed: subWindows.isEmpty
-                      ? null
-                      : () {
-                          for (final w in subWindows) {
-                            AxLayerShell.sendMessage(
-                              w.windowId,
-                              'ping from main',
-                            );
-                          }
+                  const Spacer(),
+                  _BarButton(
+                    label: '+ Bottom Bar',
+                    onPressed: () => AxLayerShell.openWindow(
+                      const LayerShellConfig(
+                        layer: LayerShellLayer.top,
+                        anchors: {
+                          LayerShellEdge.left,
+                          LayerShellEdge.right,
+                          LayerShellEdge.bottom,
                         },
-                ),
-                const SizedBox(width: 8),
-              ],
+                        exclusiveZone: 45,
+                        height: 45,
+                        namespace: 'ax_shell_bottom',
+                        dartArguments: 'bottom_bar',
+                      ),
+                    ),
+                  ),
+                  _BarButton(
+                    label: '+ Launcher',
+                    onPressed: () => AxLayerShell.openWindow(
+                      const LayerShellConfig(
+                        layer: LayerShellLayer.overlay,
+                        keyboardMode: LayerShellKeyboardMode.exclusive,
+                        width: 420,
+                        height: 520,
+                        namespace: 'ax_shell_launcher',
+                        dartArguments: 'launcher',
+                      ),
+                    ),
+                  ),
+                  _BarButton(
+                    label:
+                        'Close Last'
+                        '${subWindows.isEmpty ? '' : ' (${subWindows.length})'}',
+                    onPressed: subWindows.isEmpty
+                        ? null
+                        : () => subWindows.last.close(),
+                  ),
+                  _BarButton(
+                    label: 'Ping All',
+                    onPressed: subWindows.isEmpty
+                        ? null
+                        : () {
+                            for (final w in subWindows) {
+                              AxLayerShell.sendMessage(
+                                w.windowId,
+                                'ping from main',
+                              );
+                            }
+                          },
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
             );
           },
         ),
@@ -180,23 +183,30 @@ class _BottomBarBodyState extends State<_BottomBarBody>
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const SizedBox(width: 12),
-        Text(
-          'Bottom Bar  •  id: ${widget.window.windowId}',
-          style: const TextStyle(fontSize: 13),
-        ),
-        const Spacer(),
-        if (_messages.isNotEmpty)
+    return Container(
+      height: 45,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(width: 12),
           Text(
-            _messages.last,
-            style: const TextStyle(fontSize: 12, color: Colors.greenAccent),
+            'Bottom Bar  •  id: ${widget.window.windowId}',
+            style: const TextStyle(fontSize: 13),
           ),
-        const SizedBox(width: 12),
-        TextButton(onPressed: widget.window.close, child: const Text('Close')),
-        const SizedBox(width: 8),
-      ],
+          const Spacer(),
+          if (_messages.isNotEmpty)
+            Text(
+              _messages.last,
+              style: const TextStyle(fontSize: 12, color: Colors.greenAccent),
+            ),
+          const SizedBox(width: 12),
+          TextButton(
+            onPressed: widget.window.close,
+            child: const Text('Close'),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
     );
   }
 }

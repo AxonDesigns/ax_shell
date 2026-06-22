@@ -1,8 +1,10 @@
 #include "layer_shell_handler.h"
 
 #include <flutter_linux/flutter_linux.h>
+#include <gdk/gdkwayland.h>
 #include <gtk-layer-shell/gtk-layer-shell.h>
 #include <gtk/gtk.h>
+#include <wayland-client.h>
 
 #include <cstring>
 
@@ -94,7 +96,19 @@ void layer_shell_method_call_cb(FlMethodChannel* channel,
 
   // ── sync ───────────────────────────────────────────────────────────────────
   if (strcmp(method, "sync") == 0) {
-    gdk_display_sync(gdk_display_get_default());
+    // GLib releases the context lock during dispatch, so nested iteration is
+    // safe. Drain pending GTK work (deferred size-request changes from set*
+    // calls) so the Wayland set_size request has been sent before we block.
+    while (g_main_context_pending(nullptr))
+      g_main_context_iteration(nullptr, FALSE);
+    // wl_display_roundtrip is the blocking form of wl_display_sync.
+    // gdk_display_sync in GTK3 Wayland calls wl_display_sync (non-blocking),
+    // so we call roundtrip directly to guarantee we wait for the compositor's
+    // configure event (with the real surface dimensions).
+    GdkDisplay* gdk_display = gdk_display_get_default();
+    if (GDK_IS_WAYLAND_DISPLAY(gdk_display)) {
+      wl_display_roundtrip(gdk_wayland_display_get_wl_display(gdk_display));
+    }
     response = success();
     fl_method_call_respond(method_call, response, nullptr);
     return;

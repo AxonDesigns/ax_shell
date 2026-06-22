@@ -1,6 +1,8 @@
 #include "window_registry.h"
 
+#include <gdk/gdkwayland.h>
 #include <gtk-layer-shell/gtk-layer-shell.h>
+#include <wayland-client.h>
 
 #include <cstring>
 #include <string>
@@ -137,12 +139,15 @@ int WindowRegistry::create(const char* layer, int anchors_bits,
   }
 
   // Realize the window before creating the FlView so the Wayland layer-surface
-  // is committed with the configuration above. gdk_display_sync then blocks
-  // until the compositor's configure event arrives, which carries the actual
-  // surface dimensions (usable width after exclusive zones, correct height).
-  // The FlView therefore starts with accurate metrics on its first frame.
+  // is committed with the configuration above. wl_display_roundtrip then
+  // blocks until the compositor's configure event arrives, which carries the
+  // actual surface dimensions (usable width after exclusive zones, correct
+  // height). The FlView therefore starts with accurate metrics on its first
+  // frame.
   gtk_widget_realize(GTK_WIDGET(win));
-  gdk_display_sync(display);
+  if (GDK_IS_WAYLAND_DISPLAY(display)) {
+    wl_display_roundtrip(gdk_wayland_display_get_wl_display(display));
+  }
 
   // Create a view that shares the main window's Flutter engine.
   // This avoids EGL context conflicts that occur with separate engines.
